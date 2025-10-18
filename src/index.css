@@ -1,0 +1,77 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Ensure Noto Sans is applied to ALL elements */
+* {
+  font-family: "Noto Sans", sans-serif !important;
+}
+
+/* Set base font size globally */
+html {
+  font-size: 14px;
+}
+
+h2 {
+  font-size: 18px;
+}
+
+/* Custom scrollbar styles */
+.overflow-x-auto::-webkit-scrollbar {
+  height: 8px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+@media (max-width: 640px) {
+  html {
+    font-size: 10px;
+  }
+}
+
+
+@media (max-width: 640px) {
+  nav {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  h1, h2 {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    font-size: 6px;
+  }
+}
+
+
+@media (min-width: 640px) {
+  .page {
+    font-size: 10px;
+  }
+}
+
+
+@media (min-width: 640px) {
+  h1, h2 {
+    font-size: 18px;
+  }
+}
+
