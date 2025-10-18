@@ -70,9 +70,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
           email_id,
           password,
         });
-        // console.log("Login API response:", { data });
+        console.log("Login API response:", JSON.stringify(data, null, 2));
 
-        if (!data || !data.data || !(data.data.userId || data.data._id)) {
+        // Check if login failed
+        if (!data || data.data?.success === false) {
+          throw new Error(data?.msg || "Login failed");
+        }
+
+        // Check for valid user data
+        if (!data.data || !(data.data.userId || data.data._id)) {
+          console.error("Invalid response structure:", data);
           throw new Error("Invalid login response");
         }
 
