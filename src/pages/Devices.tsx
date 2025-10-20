@@ -8,6 +8,7 @@ import { useUserAsset } from "../hooks/useUserAsset";
 import { useFullUser } from "../hooks/useFullUser";
 import { userService } from "../services/userService";
 import { toast } from "react-toastify";
+import { useAuth } from "../hooks/useAuth";
 
 // Fix for default marker icon
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })
@@ -67,15 +68,11 @@ export default function Devices() {
     installationDate: "",
     location: null,
   });
-  const [userId, setUserId] = useState<string | undefined>(undefined);
+  const { user: authUser } = useAuth();
+  const userId = authUser?.userId || authUser?._id;
 
   useEffect(() => {
     document.title = "Devices";
-  }, []);
-
-  useEffect(() => {
-    const storedUserId = localStorage.getItem("userId") ?? undefined;
-    setUserId(storedUserId);
   }, []);
 
   const { assets, loading } = useUserAsset(userId);
@@ -95,10 +92,11 @@ export default function Devices() {
         installationDate: asset.InstallationDate
           ? (() => {
               const d = new Date(asset.InstallationDate);
-              const day = String(d.getDate()).padStart(2, "0");
-              const month = d.toLocaleString("en-GB", { month: "short" });
               const year = d.getFullYear();
-              return `${day} ${month} ${year}`;
+              const month = String(d.getMonth() + 1).padStart(2, "0");
+              const day = String(d.getDate()).padStart(2, "0");
+              // Use ISO date (YYYY-MM-DD) so it displays in <input type="date" />
+              return `${year}-${month}-${day}`;
             })()
           : "",
         location:

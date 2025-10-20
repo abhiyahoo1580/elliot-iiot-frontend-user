@@ -12,6 +12,7 @@ import EChartsGauge from "../components/EChartsGauge";
 import { VariableSizeGrid as Grid } from "react-window";
 import { useParamData } from "../hooks/useParamData";
 import { Asset } from "../types/user.types";
+// import type { ParamDataItem } from "../types/user.types";
 import { useFullUser } from "../hooks/useFullUser";
 import { useUserAsset } from "../hooks/useUserAsset";
 import { useLiveMetrics } from "../hooks/useLiveMetrics";
@@ -19,20 +20,11 @@ import { useParamLine } from "../hooks/useParamLine";
 import type { GraphGroup } from "../hooks/useParamLine";
 import { io, Socket } from "socket.io-client";
 import { ENDPOINTS } from "../api/endpoints";
+import { useAuth } from "../hooks/useAuth";
 import CustomSpinner from "../components/CustomSpinner";
 import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import { useLocation } from "react-router-dom";
 import { formatDate } from "../utils/dateUtils";
-// Type definitions for real-time charts
-interface DeviceSeries {
-  timestamps: number[];
-  values: number[];
-}
-interface DeviceSeriesStore {
-  [deviceId: string]: {
-    [paramId: string]: DeviceSeries;
-  };
-}
 function useScrollbarSize() {
   const [scrollbarHeight, setScrollbarHeight] = useState(0);
   useEffect(() => {
@@ -49,9 +41,22 @@ function useScrollbarSize() {
   }, []);
   return scrollbarHeight;
 }
+type WsPayload = Record<string, unknown> & {
+  ts?: number;
+  time?: number;
+  topic?: string;
+};
 function useSocketRealtime(topicName: string) {
-  const [socketData, setSocketData] = useState<any>(null);
+  const [socketData, setSocketData] = useState<WsPayload | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const parseTs = (v: unknown): number | null => {
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string") {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+    return null;
+  };
   useEffect(() => {
     if (!topicName) {
       return;
@@ -65,30 +70,44 @@ function useSocketRealtime(topicName: string) {
     });
     socketRef.current = socket;
     // Subscribe to topic
-    socket.on(topicName, (msg: any) => {
+    socket.on(topicName, (msg: unknown) => {
       // Handle different data formats from WebSocket server
-      let transformedData = null;
+      let transformedData: WsPayload | null = null;
       if (Array.isArray(msg) && msg.length === 2) {
         // Format: [topic, {registerAddresses, ts, GatewayId}]
-        const [topic, data] = msg;
+        const [topic, data] = msg as [string, Record<string, unknown>];
+        const tsInput = (data as { ts?: unknown }).ts;
+        const ts = parseTs(tsInput ?? null);
         transformedData = {
           ...data,
-          time: data.ts ? new Date(data.ts).getTime() : Date.now(),
+          time: ts != null ? new Date(ts).getTime() : Date.now(),
           topic: topic,
         };
-      } else if (msg && typeof msg === "object" && msg.ts) {
+      } else if (
+        msg &&
+        typeof msg === "object" &&
+        (msg as Record<string, unknown>).ts
+      ) {
         // Format: {registerAddresses, ts, GatewayId}
+        const tsInput = (msg as { ts?: unknown }).ts;
+        const ts = parseTs(tsInput ?? null);
         transformedData = {
-          ...msg,
-          time: new Date(msg.ts).getTime(),
+          ...(msg as Record<string, unknown>),
+          time: ts != null ? new Date(ts).getTime() : Date.now(),
         };
-      } else if (msg && typeof msg === "object" && msg.time) {
+      } else if (
+        msg &&
+        typeof msg === "object" &&
+        (msg as Record<string, unknown>).time
+      ) {
         // Already in expected format
-        transformedData = msg;
+        transformedData = msg as WsPayload;
       } else {
         // Fallback - use as is but add timestamp
         transformedData = {
-          ...msg,
+          ...(typeof msg === "object" && msg !== null
+            ? (msg as Record<string, unknown>)
+            : {}),
           time: Date.now(),
         };
       }
@@ -149,11 +168,14 @@ function getTzOffsetString(tz: string) {
   }
 }
 export default function RealTime() {
+  const { user: authUser } = useAuth();
+  const userId = authUser?.userId || authUser?._id;
+  const companyId = authUser?.companyId || authUser?.company_id;
   const [deviceName, setDeviceName] = useState<string>("");
   const [selectedView, setSelectedView] = useState<string>("Table");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  useFullUser(localStorage.getItem("userId") ?? undefined);
-  const { assets } = useUserAsset(localStorage.getItem("userId") ?? undefined);
+  useFullUser(userId ?? undefined);
+  const { assets } = useUserAsset(userId ?? undefined);
   const [asset_id, setAssetId] = useState<string>("");
   const [fDate, setFdate] = useState<string>();
   const [tDate, setTdate] = useState<string>();
@@ -222,8 +244,6 @@ export default function RealTime() {
       }
     }
   }, [location.search, assets]);
-  // Real-time chart data storage
-  const [liveSeries, setLiveSeries] = useState<DeviceSeriesStore>({});
   // Local state for live metrics (like admin side)
   interface LiveMetric {
     ActValue: string | number | (string | number)[];
@@ -348,17 +368,19 @@ export default function RealTime() {
     setTdate(endOfDay.getTime().toString());
     setDate(startOfDay.getTime().toString());
   }, [asset_id, assets]);
-  // Fetch parameter data (today)
+  // Fetch parameter data (today) — fetch when table view or when data needed
+  const shouldLoadTable = asset_id && fDate && tDate && date;
   const {
     data: paramData,
     loading: paramLoading,
     error: paramError,
     setData: setParamData,
   } = useParamData(
-    asset_id && fDate && tDate && date ? asset_id : "",
-    fDate || "",
-    tDate || "",
-    date || ""
+    shouldLoadTable ? asset_id : "",
+    shouldLoadTable ? fDate : "",
+    shouldLoadTable ? tDate : "",
+    shouldLoadTable ? date : "",
+    companyId as string | undefined
   );
   // Fetch line chart data (today)
   // Fetch line chart data (today) — only when user selects 'Line Chart'
@@ -372,7 +394,8 @@ export default function RealTime() {
     shouldLoadLine ? asset_id : "",
     shouldLoadLine ? fDate : "",
     shouldLoadLine ? tDate : "",
-    shouldLoadLine ? date : ""
+    shouldLoadLine ? date : "",
+    companyId as string | undefined
   );
   // State to hold grouped line chart data with websocket updates
   const [groupDataWithWS, setGroupDataWithWS] = useState<GraphGroup[] | null>(
@@ -381,17 +404,26 @@ export default function RealTime() {
   const seededSignatureRef = useRef<string | null>(null);
   // Cap number of points per chart to keep UI smooth
   const MAX_POINTS = 10000;
+  // Hard reset all derived state when device changes so gauges/table/graphs swap cleanly
+  useEffect(() => {
+    if (!asset_id) return;
+    // reset WS merge guards and derived series
+    lastWsTimeRef.current = undefined;
+    lastTableWsTimeRef.current = undefined;
+    seededSignatureRef.current = null;
+    setGroupDataWithWS(Array.isArray(lineDataToday) ? lineDataToday : null);
+    // Don't clear paramData - let the hook refetch automatically on asset_id change
+  }, [asset_id, lineDataToday]);
   // Update lineDataWithWS when lineDataToday or wsData changes
   useEffect(() => {
-    // If we have fresh API data for today, seed the state only once per asset/date window
+    // Always seed fresh API data once per asset/date window (even if WS is present)
     const sig =
       asset_id && fDate && tDate ? `${asset_id}|${fDate}|${tDate}` : null;
-    if (!wsData && Array.isArray(lineDataToday)) {
+    if (Array.isArray(lineDataToday)) {
       if (sig && seededSignatureRef.current !== sig) {
         setGroupDataWithWS(lineDataToday);
         seededSignatureRef.current = sig;
       }
-      return;
     }
     if (!wsData) return;
     if (
@@ -416,8 +448,11 @@ export default function RealTime() {
       const updated = base.map((group) => {
         const updatedSeries = group.series.map((s) => {
           const wsVal = getWsValueForItem(
-            wsData as any,
-            { RegisterAddress: s.registerAddress } as any
+            wsData as Record<string, unknown>,
+            {
+              RegisterAddress: s.registerAddress,
+              Name: s.name,
+            } as Record<string, unknown>
           );
           const y = Number(wsVal);
           if (!Number.isFinite(y)) return s;
@@ -433,58 +468,128 @@ export default function RealTime() {
       return updated;
     });
   }, [wsData, lineDataToday, asset_id, fDate, tDate, getWsValueForItem]);
+  // Track last WS time for table updates separately
+  const lastTableWsTimeRef = useRef<number | undefined>(undefined);
+
+  // Update table data when WebSocket data arrives
   useEffect(() => {
-    if (
-      wsData &&
-      paramData &&
-      paramData.data &&
-      Array.isArray(paramData.data[0]?.data)
-    ) {
-      // Clone paramData to avoid direct mutation
-      const updatedParamData = { ...paramData };
-      updatedParamData.data = [
-        {
-          ...paramData.data[0],
-          data: paramData.data[0].data.map((item: any) => {
-            const wsValue = getWsValueForItem(wsData, item);
-            const wsTime = wsData.time; // unix ms
-            if (wsValue !== undefined) {
-              // Add wsValue at the end of ActValue array (convert to string)
-              const newActValue = [
-                ...(Array.isArray(item.ActValue) ? item.ActValue : []),
-                wsValue != null ? wsValue.toString() : "",
-              ];
-              // Convert wsTime to "HH:mm" in asset/device timezone
-              let newValueReceivedDate = Array.isArray(item.ValueReceivedDate)
-                ? [...item.ValueReceivedDate]
-                : [];
-              if (wsTime !== undefined) {
-                const asset =
-                  assets?.find((a) => a.AssetId === asset_id) || assets?.[0];
-                const deviceTimeZone = asset?.timeZone || "UTC";
-                const formattedTime = formatInTimeZone(
-                  Number(wsTime),
-                  deviceTimeZone,
-                  "HH:mm:ss"
-                );
-                newValueReceivedDate = [...newValueReceivedDate, formattedTime];
-              }
-              return {
-                ...item,
-                ActValue: newActValue,
-                ValueReceivedDate: newValueReceivedDate,
-              };
-            }
-            return item;
-          }),
-        },
-      ];
-      setParamData(updatedParamData);
+    // Early returns for various conditions
+    if (!wsData) {
+      return;
     }
-  }, [wsData]);
+
+    if (selectedView !== "Table") {
+      return; // Only update when table view is active
+    }
+
+    if (
+      !paramData ||
+      !paramData.data ||
+      !Array.isArray(paramData.data[0]?.data)
+    ) {
+      // console.log("[RealTime] Table WS Update skipped - paramData not ready yet");
+      return;
+    }
+
+    if (paramLoading) {
+      // console.log("[RealTime] Table WS Update skipped - still loading initial data");
+      return;
+    }
+
+    const wsTime = typeof wsData.time === "number" ? wsData.time : Date.now();
+
+    // Prevent processing the same WebSocket timestamp twice for table
+    if (lastTableWsTimeRef.current === wsTime) {
+      return;
+    }
+    lastTableWsTimeRef.current = wsTime;
+
+    // console.log("[RealTime] Table WS Update - Time:", wsTime, "WS Keys:", Object.keys(wsData));
+
+    // Format timestamp for table display (HH:mm:ss)
+    const timeStr = (() => {
+      try {
+        const asset = assets?.find((a) => a.AssetId === asset_id);
+        const deviceTimeZone = asset?.timeZone || "UTC";
+        return formatInTimeZone(new Date(wsTime), deviceTimeZone, "HH:mm:ss");
+      } catch {
+        return new Date(wsTime).toLocaleTimeString("en-GB", { hour12: false });
+      }
+    })();
+
+    // Update paramData with new WebSocket values
+    setParamData((prev) => {
+      if (
+        !prev ||
+        !prev.data ||
+        !prev.data[0] ||
+        !Array.isArray(prev.data[0].data)
+      ) {
+        return prev;
+      }
+
+      let hasUpdates = false;
+      const updatedRows = prev.data[0].data.map((row) => {
+        const wsVal = getWsValueForItem(
+          wsData as Record<string, unknown>,
+          row as unknown as Record<string, unknown>
+        );
+
+        if (wsVal === undefined) {
+          return row; // No update for this parameter
+        }
+
+        hasUpdates = true;
+        // console.log("[RealTime] Table Update Row:", {
+        //   name: Array.isArray(row.Name) ? row.Name[0] : row.Name,
+        //   wsValue: wsVal,
+        //   time: timeStr
+        // });
+
+        // Convert WebSocket value to string for table display
+        const wsValStr = String(wsVal);
+
+        // Append new value and timestamp to arrays
+        const newActValue = Array.isArray(row.ActValue)
+          ? [...row.ActValue, wsValStr]
+          : [wsValStr];
+
+        const newValueReceivedDate = Array.isArray(row.ValueReceivedDate)
+          ? [...row.ValueReceivedDate, timeStr]
+          : [timeStr];
+
+        return {
+          ...row,
+          ActValue: newActValue,
+          ValueReceivedDate: newValueReceivedDate,
+        };
+      });
+
+      if (!hasUpdates) {
+        // console.log("[RealTime] No matching parameters found for WS data");
+        return prev;
+      }
+
+      // console.log("[RealTime] ✅ Table updated with", updatedRows.length, "rows at", timeStr);
+      return {
+        ...prev,
+        data: [
+          {
+            ...prev.data[0],
+            data: updatedRows,
+          },
+        ],
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wsData, getWsValueForItem, assets, asset_id, selectedView, paramLoading]);
   // Live metrics
   const [curr_date] = useState(Date.now());
-  const { data: data_l } = useLiveMetrics(asset_id || "", curr_date);
+  const { data: data_l } = useLiveMetrics(
+    asset_id || "",
+    curr_date,
+    companyId as string | undefined
+  );
   // Update liveMetrics state when data_l changes (like admin side)
   useEffect(() => {
     if (Array.isArray(data_l)) {
@@ -515,16 +620,40 @@ export default function RealTime() {
     ) {
       return;
     }
-    setLiveMetrics((prev: any) => {
+    setLiveMetrics((prev) => {
       if (!prev || !Array.isArray(prev)) return prev;
       return prev.map((metric) => {
-        const newActValue = getWsValueForItem(wsData, metric);
-        if (newActValue !== undefined) {
-          const actValueNum = Number(newActValue);
+        const newActRaw = getWsValueForItem(
+          wsData as Record<string, unknown>,
+          metric as unknown as Record<string, unknown>
+        );
+        if (newActRaw !== undefined) {
+          const actValueNum = (() => {
+            if (typeof newActRaw === "number") return newActRaw;
+            if (typeof newActRaw === "string") {
+              const n = Number(newActRaw);
+              return Number.isFinite(n) ? n : 0;
+            }
+            return 0;
+          })();
           const maxLimitNum = Number(metric.Maxlimit);
           let newMax = metric.Maxlimit;
           if (!maxLimitNum || actValueNum > maxLimitNum) {
             newMax = String(actValueNum);
+          }
+          let newActValue: string | number | (string | number)[] =
+            metric.ActValue;
+          if (typeof newActRaw === "number" || typeof newActRaw === "string") {
+            newActValue = newActRaw as string | number;
+          } else if (Array.isArray(newActRaw)) {
+            newActValue = newActRaw as (string | number)[];
+          } else {
+            // fallback string cast
+            try {
+              newActValue = String(newActRaw);
+            } catch {
+              newActValue = metric.ActValue;
+            }
           }
           return {
             ...metric,
@@ -535,113 +664,10 @@ export default function RealTime() {
         return metric;
       });
     });
-  }, [wsData]);
-  // Update local liveMetrics state when API data changes
-  useEffect(() => {
-    if (Array.isArray(data_l)) {
-      setLiveMetrics(
-        data_l.map((metric) => {
-          const actValueNum = Number(metric.ActValue);
-          const maxLimitNum = Number(metric.Maxlimit);
-          let newMax = metric.Maxlimit;
-          if (!maxLimitNum || actValueNum > maxLimitNum) {
-            newMax = String(actValueNum);
-          }
-          return {
-            ...metric,
-            Maxlimit: newMax,
-          };
-        })
-      );
-    } else {
-      setLiveMetrics(data_l);
-    }
-  }, [data_l]);
-  // Real-time update for live metrics
-  useEffect(() => {
-    if (!wsData) return;
-    if (
-      typeof wsData.time === "number" &&
-      lastWsTimeRef.current === wsData.time
-    ) {
-      return;
-    }
-    setLiveMetrics((prev: any) => {
-      if (!prev || !Array.isArray(prev)) return prev;
-      return prev.map((metric) => {
-        const newActValue = getWsValueForItem(wsData, metric);
-        if (newActValue !== undefined) {
-          const actValueNum = Number(newActValue);
-          const maxLimitNum = Number(metric.Maxlimit);
-          let newMax = metric.Maxlimit;
-          if (!maxLimitNum || actValueNum > maxLimitNum) {
-            newMax = String(actValueNum);
-          }
-          return {
-            ...metric,
-            ActValue: newActValue,
-            Maxlimit: newMax,
-          };
-        }
-        return metric;
-      });
-    });
-  }, [wsData]);
-  // Update liveSeries for real-time charts
-  useEffect(() => {
-    if (!wsData || !data_l) return;
-    setLiveSeries((prev) => {
-      const updated = { ...prev };
-      data_l.forEach((metric) => {
-        // Try different property access patterns for register address
-        const regAddrKey = metric.RegisterAddress?.toString();
-        let wsValue = undefined;
-        if (
-          regAddrKey &&
-          Object.prototype.hasOwnProperty.call(wsData, regAddrKey)
-        ) {
-          wsValue = wsData[regAddrKey];
-        } else if (
-          metric.RegisterAddress &&
-          Object.prototype.hasOwnProperty.call(wsData, metric.RegisterAddress)
-        ) {
-          wsValue = wsData[metric.RegisterAddress];
-        } else if (
-          metric.RegisterAddress &&
-          Object.prototype.hasOwnProperty.call(
-            wsData,
-            `${metric.RegisterAddress}`
-          )
-        ) {
-          wsValue = wsData[`${metric.RegisterAddress}`];
-        }
-        if (wsValue !== undefined && metric.parameterId) {
-          const deviceId = asset_id || "default";
-          const paramId = metric.parameterId;
-          const value = Number(wsValue);
-          const timestamp = wsData.time || Date.now();
-          if (!updated[deviceId]) updated[deviceId] = {};
-          if (!updated[deviceId][paramId]) {
-            updated[deviceId][paramId] = { timestamps: [], values: [] };
-          }
-          // Add new data point
-          updated[deviceId][paramId].timestamps.push(timestamp);
-          updated[deviceId][paramId].values.push(value);
-          // Keep only last 50 points for performance
-          if (updated[deviceId][paramId].timestamps.length > 50) {
-            updated[deviceId][paramId].timestamps =
-              updated[deviceId][paramId].timestamps.slice(-50);
-            updated[deviceId][paramId].values =
-              updated[deviceId][paramId].values.slice(-50);
-          }
-        }
-      });
-      return updated;
-    });
-  }, [wsData, data_l, asset_id]);
-  // Utility function to get chart data from liveSeries
+  }, [wsData, getWsValueForItem]);
+  // Utility function to map WebSocket values is handled by getWsValueForItem
   // State for allCols and allRows used in the table/grid
-  const [allCols, setAllCols] = useState<any[]>([]);
+  const [allCols, setAllCols] = useState<Array<string | number>>([]);
   // Helper: get all unique ValueReceivedDate columns
   useEffect(() => {
     if (
@@ -1205,31 +1231,19 @@ export default function RealTime() {
               return null;
             }
             // Use live websocket value if available, else fallback to ActValue
-            let liveValue = data.ActValue;
+            let liveValue: string | number | (string | number)[] =
+              data.ActValue;
             if (wsData) {
-              // Use the same logic as admin: try to get the value from wsData
-              const regAddrKey = data.RegisterAddress?.toString();
+              const got = getWsValueForItem(
+                wsData as Record<string, unknown>,
+                data as unknown as Record<string, unknown>
+              );
               if (
-                regAddrKey &&
-                Object.prototype.hasOwnProperty.call(wsData, regAddrKey)
+                typeof got === "number" ||
+                typeof got === "string" ||
+                Array.isArray(got)
               ) {
-                liveValue = wsData[regAddrKey];
-              } else if (
-                data.RegisterAddress &&
-                Object.prototype.hasOwnProperty.call(
-                  wsData,
-                  data.RegisterAddress
-                )
-              ) {
-                liveValue = wsData[data.RegisterAddress];
-              } else if (
-                data.RegisterAddress &&
-                Object.prototype.hasOwnProperty.call(
-                  wsData,
-                  `${data.RegisterAddress}`
-                )
-              ) {
-                liveValue = wsData[`${data.RegisterAddress}`];
+                liveValue = got as typeof liveValue;
               }
             }
             return (
@@ -1360,6 +1374,9 @@ export default function RealTime() {
                     name: s.name,
                     data: s.data.map((p) => ({ x: p.x, y: p.y })),
                   }));
+                  const chartKeyBase = `${asset_id || "no-asset"}-${
+                    fDate || "no-f"
+                  }-${tDate || "no-t"}-${deviceName || "no-device"}`;
                   const chartOptions = {
                     series: chartSeries,
                     chart: {
@@ -1462,13 +1479,17 @@ export default function RealTime() {
                   };
                   return (
                     <div
-                      key={group.id}
+                      key={`${chartKeyBase}-${group.id}`}
                       className="bg-white mb-0 p-4 pb-0 rounded-lg border border-gray-200"
                     >
+                      <div className="text-base font-bold mb-1 text-orange-700">
+                        {deviceName}
+                      </div>
                       <div className="text-sm font-medium mb-2 text-gray-700">
                         {chartSeries.map((s) => s.name).join(", ")}
                       </div>
                       <ReactApexChart
+                        key={`${chartKeyBase}-${group.id}`}
                         options={chartOptions}
                         series={chartOptions.series}
                         type="line"

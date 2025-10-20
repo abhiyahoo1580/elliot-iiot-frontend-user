@@ -2,8 +2,15 @@ import React, { useEffect, useState } from "react";
 import { alertServices } from "../../services/alertService";
 import { graphServices } from "../../services/graphService";
 import { toast } from "react-toastify";
+import { useAuth } from "../../hooks/useAuth";
 
-const AddGroup = ({ onClose }) => {
+interface AddGroupProps {
+  onClose: () => void;
+}
+
+const AddGroup: React.FC<AddGroupProps> = ({ onClose }) => {
+  const { user } = useAuth();
+
   interface DeviceTypeItem {
     _id: string;
     DeviceTypeName: string;
@@ -28,7 +35,7 @@ const AddGroup = ({ onClose }) => {
 
   // Fetch device list
   useEffect(() => {
-    const id = localStorage.getItem("userId");
+    const id = user?.userId || user?._id;
     if (id) {
       alertServices
         .getMeterName(String(id))
@@ -43,7 +50,7 @@ const AddGroup = ({ onClose }) => {
           setDeviceName([]);
         });
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (assetId) {
@@ -75,7 +82,7 @@ const AddGroup = ({ onClose }) => {
       return;
     }
 
-    const userId = localStorage.getItem("userId");
+    const userId = user?.userId || user?._id;
 
     const payload = {
       userId: userId,

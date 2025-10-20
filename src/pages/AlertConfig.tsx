@@ -5,6 +5,7 @@ import AddAlertForm from "../components/alertConfig/AddAlertForm";
 import { toast } from "react-toastify";
 import EditAlertForm from "../components/alertConfig/EditAlert";
 import CustomSpinner from "../components/CustomSpinner";
+import { useAuth } from "../hooks/useAuth";
 
 interface AlertItem {
   _id: string;
@@ -18,6 +19,7 @@ interface AlertItem {
 }
 
 const AlertConfig = () => {
+  const { user } = useAuth();
   const [userData, setUserData] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -27,7 +29,7 @@ const AlertConfig = () => {
 
   const fetchAlerts = () => {
     setLoading(true);
-    const id = localStorage.getItem("userId");
+    const id = user?.userId || user?._id;
     if (id) {
       alertServices
         .getAlert(id)
@@ -43,7 +45,7 @@ const AlertConfig = () => {
     } else {
       setUserData([]);
       setLoading(false);
-      toast.error("❌ User ID not found in local storage");
+      toast.error("❌ User ID not found");
     }
   };
 

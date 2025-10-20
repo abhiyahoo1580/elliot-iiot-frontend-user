@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
 import {
   HomeIcon,
   ClockIcon,
@@ -39,7 +38,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 }): JSX.Element => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
@@ -65,12 +63,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleLogout = useCallback((): void => {
     const confirmLogout = window.confirm("Are you sure you want to logout?");
     if (confirmLogout) {
-      // Call logout from AuthContext which will handle backend logout
-      logout();
-      localStorage.removeItem("sidebarCollapsed");
+      localStorage.clear();
       navigate("/");
     }
-  }, [navigate, logout]);
+  }, [navigate]);
 
   const isActivePath = (path: string): boolean => {
     return location.pathname === path;

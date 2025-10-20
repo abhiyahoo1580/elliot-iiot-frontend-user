@@ -10,6 +10,7 @@ import { graphServices } from "../services/graphService";
 import { toast } from "react-toastify";
 import { Chip } from "@mui/material";
 import CustomSpinner from "../components/CustomSpinner";
+import { useAuth } from "../hooks/useAuth";
 
 interface Group {
   groupName: string;
@@ -26,6 +27,7 @@ interface GraphDataItem {
 }
 
 const GraphConfig = () => {
+  const { user } = useAuth();
   const [groupData, setGroupData] = useState<GraphDataItem[]>([]);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [isAddGroup, setIsAddGroup] = useState(false);
@@ -47,7 +49,7 @@ const GraphConfig = () => {
   };
 
   const fetchGroupData = () => {
-    const id = localStorage.getItem("userId");
+    const id = user?.userId || user?._id;
 
     if (id) {
       setLoading(true);

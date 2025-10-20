@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { alertServices } from "../../services/alertService";
 import { toast } from "react-toastify";
+import { useAuth } from "../../hooks/useAuth";
 
 interface EditAlertFormProps {
   alertData: any;
@@ -13,6 +14,8 @@ const EditAlertForm: React.FC<EditAlertFormProps> = ({
   alertId,
   onClose,
 }) => {
+  const { user } = useAuth();
+
   interface DeviceTypeItem {
     _id: string;
     DeviceTypeName: string;
@@ -83,10 +86,10 @@ const EditAlertForm: React.FC<EditAlertFormProps> = ({
   }, [alertData, machineName, parameterList]);
 
   useEffect(() => {
-    const id = localStorage.getItem("userId");
+    const id = user?.userId || user?._id;
     if (id) {
       alertServices
-        .getMeterName(id)
+        .getMeterName(String(id))
         .then((res: any) => {
           const allAssets = res.data.flatMap(
             (item: any) => item.assetDetails ?? []
@@ -98,7 +101,7 @@ const EditAlertForm: React.FC<EditAlertFormProps> = ({
           setMachineName([]);
         });
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (assetId) {

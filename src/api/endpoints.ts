@@ -6,7 +6,6 @@ export const ENDPOINTS = {
     (import.meta.env.VITE_API_BASE_URL as string) || "http://localhost:8003",
   // Auth
   LOGIN: "/login/login",
-  LOGOUT: "/login/logout",
   REGISTER: "/auth/register",
 
   GET_FULL_USER: "/UOSPL/dashboard/oem/user/information/get?userId=",

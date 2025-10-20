@@ -1,15 +1,15 @@
-import { WS_CONFIG } from './config';
-import { WS_EVENTS } from './events';
+import { WS_CONFIG } from "./config";
+import { WS_EVENTS } from "./events";
 
 // Singleton WebSocket instance for UserV2.0
 let socket: WebSocket | null = null;
 let reconnectAttempts = 0;
 let pingIntervalId: ReturnType<typeof setInterval> | null = null;
 
-export function connectWebSocket(token: string): WebSocket {
+export function connectWebSocket(): WebSocket {
   if (socket && socket.readyState === WebSocket.OPEN) return socket;
 
-  const url = `${WS_CONFIG.URL}?token=${encodeURIComponent(token)}`;
+  const url = WS_CONFIG.URL;
   socket = new WebSocket(url);
 
   socket.onopen = () => {
@@ -22,14 +22,14 @@ export function connectWebSocket(token: string): WebSocket {
     if (reconnectAttempts < WS_CONFIG.MAX_RETRIES) {
       setTimeout(() => {
         reconnectAttempts++;
-        connectWebSocket(token);
+        connectWebSocket();
       }, WS_CONFIG.RECONNECT_INTERVAL);
     }
   };
 
   socket.onerror = (error: Event) => {
     // Optionally handle error
-    console.error('WebSocket error:', error);
+    console.error("WebSocket error:", error);
   };
 
   // Heartbeat (ping) mechanism
@@ -63,5 +63,5 @@ export default {
   close: closeWebSocket,
   get instance() {
     return socket;
-  }
+  },
 };

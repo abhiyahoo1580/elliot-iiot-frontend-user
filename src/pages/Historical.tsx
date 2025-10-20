@@ -17,6 +17,7 @@ import { Asset, ParamDataItem } from "../types/user.types";
 import { set } from "lodash";
 import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 
 function mean(arr: number[]) {
   if (!arr.length) return 0;
@@ -82,8 +83,13 @@ export default function Historical() {
   const [selectedWeek, setSelectedWeek] = useState<WeekRange>(null);
   const [selectedMonth, setSelectedMonth] = useState<MonthRange>(null);
   const [selectedView, setSelectedView] = useState<string>("Table");
-  const { user } = useFullUser(localStorage.getItem("userId") ?? undefined);
-  const { assets } = useUserAsset(localStorage.getItem("userId") ?? undefined);
+  const { user: authUser } = useAuth();
+  const userId = authUser?.userId || authUser?._id;
+  const companyId = (authUser?.companyId || authUser?.company_id) as
+    | string
+    | undefined;
+  const { user } = useFullUser(userId ?? undefined);
+  const { assets } = useUserAsset(userId ?? undefined);
   const [asset_id, setAssetId] = useState<string>("");
   const location = useLocation();
   const [todayFDate, setTodayFDate] = useState<string>("");
@@ -401,7 +407,8 @@ export default function Historical() {
       : "",
     selectedTimeRange === "Today" ? todayFDate : "",
     selectedTimeRange === "Today" ? todayTDate : "",
-    selectedTimeRange === "Today" ? todayDate : ""
+    selectedTimeRange === "Today" ? todayDate : "",
+    companyId
   );
   const {
     data: weekParamData,
@@ -413,7 +420,8 @@ export default function Historical() {
       : "",
     selectedTimeRange === "This week" ? weekFDate : "",
     selectedTimeRange === "This week" ? weekTDate : "",
-    selectedTimeRange === "This week" ? weekDate : ""
+    selectedTimeRange === "This week" ? weekDate : "",
+    companyId
   );
   const {
     data: monthParamData,
@@ -425,7 +433,8 @@ export default function Historical() {
       : "",
     selectedTimeRange === "This month" ? monthFDate : "",
     selectedTimeRange === "This month" ? monthTDate : "",
-    selectedTimeRange === "This month" ? monthDate : ""
+    selectedTimeRange === "This month" ? monthDate : "",
+    companyId
   );
   const {
     data: customParamData,
@@ -437,7 +446,8 @@ export default function Historical() {
       : "",
     selectedTimeRange === "Custom" ? customFDate : "",
     selectedTimeRange === "Custom" ? customTDate : "",
-    selectedTimeRange === "Custom" ? customDate : ""
+    selectedTimeRange === "Custom" ? customDate : "",
+    companyId
   );
   // Only load line/chart data when user selects the Line Chart view
   const shouldLoadLine = selectedView === "Line Chart";
@@ -449,7 +459,8 @@ export default function Historical() {
     shouldLoadLine && selectedTimeRange === "Today" ? asset_id : "",
     shouldLoadLine && selectedTimeRange === "Today" ? todayFDate : "",
     shouldLoadLine && selectedTimeRange === "Today" ? todayTDate : "",
-    shouldLoadLine && selectedTimeRange === "Today" ? todayDate : ""
+    shouldLoadLine && selectedTimeRange === "Today" ? todayDate : "",
+    companyId
   );
   const {
     data: lineDataWeek,
@@ -459,7 +470,8 @@ export default function Historical() {
     shouldLoadLine && selectedTimeRange === "This week" ? asset_id : "",
     shouldLoadLine && selectedTimeRange === "This week" ? weekFDate : "",
     shouldLoadLine && selectedTimeRange === "This week" ? weekTDate : "",
-    shouldLoadLine && selectedTimeRange === "This week" ? weekDate : ""
+    shouldLoadLine && selectedTimeRange === "This week" ? weekDate : "",
+    companyId
   );
   const {
     data: lineDataMonth,
@@ -469,7 +481,8 @@ export default function Historical() {
     shouldLoadLine && selectedTimeRange === "This month" ? asset_id : "",
     shouldLoadLine && selectedTimeRange === "This month" ? monthFDate : "",
     shouldLoadLine && selectedTimeRange === "This month" ? monthTDate : "",
-    shouldLoadLine && selectedTimeRange === "This month" ? monthDate : ""
+    shouldLoadLine && selectedTimeRange === "This month" ? monthDate : "",
+    companyId
   );
   const {
     data: lineDataCustom,
@@ -479,7 +492,8 @@ export default function Historical() {
     shouldLoadLine && selectedTimeRange === "Custom" ? asset_id : "",
     shouldLoadLine && selectedTimeRange === "Custom" ? customFDate : "",
     shouldLoadLine && selectedTimeRange === "Custom" ? customTDate : "",
-    shouldLoadLine && selectedTimeRange === "Custom" ? customDate : ""
+    shouldLoadLine && selectedTimeRange === "Custom" ? customDate : "",
+    companyId
   );
   type GroupedDay = { _id: number | string; data: ParamDataItem[] };
   type ParamDataResponseLocal = { data: GroupedDay[] };

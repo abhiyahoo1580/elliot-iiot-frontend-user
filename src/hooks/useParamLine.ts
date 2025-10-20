@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import axiosInstance from "../api/axiosInstance";
 import { ENDPOINTS } from "../api/endpoints";
 
 // Grouped graph response types for Historical charts (one chart per group)
@@ -18,27 +18,22 @@ export function useParamLine(
   assetId: string,
   fDate: string,
   tDate: string,
-  date: string
+  date: string,
+  companyId?: string | number
 ) {
   const [data, setData] = useState<GraphGroup[] | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [companyId, setCompanyId] = useState<string>("");
+
   useEffect(() => {
-    const ci: string = localStorage.getItem("companyId") ?? "";
-    setCompanyId(ci);
-  }, []);
-  useEffect(() => {
-    if (!assetId || !fDate || !tDate || !date) return;
+    if (!assetId || !fDate || !tDate || !date || !companyId) return;
     setLoading(true);
     setError(null);
 
     const url = `${ENDPOINTS.BASE_URL}${ENDPOINTS.GET_GRAPH}companyId=${companyId}&assetId=${assetId}&fDate=${fDate}&tDate=${tDate}&view=graph&date=${date}`;
 
-    axios
-      .get(url, {
-        withCredentials: true,
-      })
+    axiosInstance
+      .get(url)
       .then((res) => {
         const raw = res?.data?.data;
         // Expected backend shape: [{ _id, data: [{ data: [[ts,val]...], name, registerAddress }] }]
@@ -82,7 +77,7 @@ export function useParamLine(
         )
       )
       .finally(() => setLoading(false));
-    }, [companyId, assetId, fDate, tDate, date]);
+  }, [companyId, assetId, fDate, tDate, date]);
 
   return { data, loading, error };
 }

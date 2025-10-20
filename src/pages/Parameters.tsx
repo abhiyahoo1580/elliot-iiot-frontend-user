@@ -7,9 +7,11 @@ import { ENDPOINTS } from "../api/endpoints";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import CustomSpinner from "../components/CustomSpinner";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Parameters() {
-  const userId = localStorage.getItem("userId");
+  const { user } = useAuth();
+  const userId = user?.userId || user?._id;
   const { assets } = useUserAsset(userId ?? undefined);
   // Use assets returned by useUserAsset. We'll show AssetName (device name) in the dropdown
   // and set `selectedAssetType` to the asset's AssetTypeId so parameters are fetched by asset type.
@@ -32,7 +34,7 @@ export default function Parameters() {
   // Pass userId to the hook
   const { parameters, loading: paramsLoading } = useParametersByAssetType(
     selectedAssetType,
-    userId
+    userId ?? null
   );
 
   // Track toggles for each parameter (_id)

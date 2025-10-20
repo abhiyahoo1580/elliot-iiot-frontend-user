@@ -139,7 +139,7 @@ export default function DashboardPage() {
       try {
         setLcdLoading(true);
         setLcdError(null);
-        const companyId = Number(localStorage.getItem("companyId")) || 78;
+        const companyId = Number(user?.companyId || user?.company_id) || 78;
         const response = await userService.getLcdData(
           userId,
           companyId,

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { alertServices } from "../../services/alertService";
 import { graphServices } from "../../services/graphService";
 import { toast } from "react-toastify";
+import { useAuth } from "../../hooks/useAuth";
 
 interface EditGroupProps {
   groupData: {
@@ -26,6 +27,7 @@ interface ParameterItem {
 }
 
 const EditGroup = ({ groupData, onClose }: EditGroupProps) => {
+  const { user } = useAuth();
   const [deviceList, setDeviceList] = useState<DeviceTypeItem[]>([]);
   const [parameterList, setParameterList] = useState<ParameterItem[]>([]);
   const [assetId, setAssetId] = useState<string>(groupData.assetId);
@@ -36,10 +38,10 @@ const EditGroup = ({ groupData, onClose }: EditGroupProps) => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
-    const userId = localStorage.getItem("userId");
+    const userId = user?.userId || user?._id;
     if (userId) {
       alertServices
-        .getMeterName(userId)
+        .getMeterName(String(userId))
         .then((res: any) => {
           const devices = res.data.flatMap((d: any) => d.assetDetails ?? []);
           setDeviceList(devices);
@@ -48,7 +50,7 @@ const EditGroup = ({ groupData, onClose }: EditGroupProps) => {
           toast.error("Device fetch failed", err);
         });
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (assetId) {
@@ -81,7 +83,7 @@ const EditGroup = ({ groupData, onClose }: EditGroupProps) => {
   };
 
   const handleSubmit = async () => {
-    const userId = localStorage.getItem("userId");
+    const userId = user?.userId || user?._id;
 
     if (
       !userId ||

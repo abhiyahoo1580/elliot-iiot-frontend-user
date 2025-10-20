@@ -2,12 +2,15 @@ import React, { useEffect, useState } from "react";
 import { alertServices } from "../../services/alertService";
 import { toast } from "react-toastify";
 import { graphServices } from "../../services/graphService";
+import { useAuth } from "../../hooks/useAuth";
 
 interface AddParameterProps {
   onClose: () => void;
 }
 
 const AddParameter: React.FC<AddParameterProps> = ({ onClose }) => {
+  const { user } = useAuth();
+
   interface DeviceTypeItem {
     _id: string;
     DeviceTypeName: string;
@@ -31,7 +34,7 @@ const AddParameter: React.FC<AddParameterProps> = ({ onClose }) => {
   });
 
   useEffect(() => {
-    const id = localStorage.getItem("userId");
+    const id = user?.userId || user?._id;
     if (id) {
       alertServices
         .getMeterName(String(id))
@@ -46,7 +49,7 @@ const AddParameter: React.FC<AddParameterProps> = ({ onClose }) => {
           setDeviceName([]);
         });
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (assetId) {
@@ -78,7 +81,7 @@ const AddParameter: React.FC<AddParameterProps> = ({ onClose }) => {
       return;
     }
 
-    const userId = localStorage.getItem("userId");
+    const userId = user?.userId || user?._id;
 
     const payload = {
       userId: userId,

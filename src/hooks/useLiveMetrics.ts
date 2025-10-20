@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import axiosInstance from "../api/axiosInstance";
 import { ENDPOINTS } from "../api/endpoints";
 
 type ParamData = {
@@ -22,17 +22,12 @@ type ApiResponse = {
 export function useLiveMetrics(
   assetId: string,
   date: number,
+  companyId?: string | number
 ) {
   const [data, setData] = useState<ParamData[] | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [companyId, setCompanyId] = useState<string>("");
-  
-  useEffect(()=>{
-    const ci:string = localStorage.getItem('companyId') ?? "";
-    setCompanyId(ci);
-  },[]);
-  
+
   useEffect(() => {
     if (!companyId || !assetId || !date) return;
 
@@ -40,18 +35,16 @@ export function useLiveMetrics(
     setError(null);
 
     const url = `${ENDPOINTS.BASE_URL}${ENDPOINTS.GET_PARAM_DATA}companyId=${companyId}&assetId=${assetId}&date=${date}&view=realtime`;
-    
+
     // console.log("useLiveMetrics API call:", {
     //   url,
     //   companyId,
     //   assetId,
-    //   date,
+    //   date
     // });
 
-    axios
-      .get<ApiResponse>(url, {
-        withCredentials: true, // Send cookies with request
-      })
+    axiosInstance
+      .get<ApiResponse>(url)
 
       .then((res) => {
         // console.log("useLiveMetrics API response:", res.data);

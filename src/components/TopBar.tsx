@@ -1,14 +1,13 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { useUserLocation } from "../hooks/useUserLocation";
+import { Bars3Icon, BellAlertIcon } from "@heroicons/react/24/outline";
+import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useUnreadNotificationContext } from "../context/UnreadNotificationContext";
 import { useAuth } from "../hooks/useAuth";
 import { useFullUser } from "../hooks/useFullUser";
-import ChangePassword from "./ChangePassword";
-import { toast } from "react-toastify";
-import { Bars3Icon, BellAlertIcon } from "@heroicons/react/24/outline";
-import NotificationPopover from "./NotificationPopover";
+import { useUserLocation } from "../hooks/useUserLocation";
 import { alertServices } from "../services/alertService";
-import { useUnreadNotificationContext } from "../context/UnreadNotificationContext";
+import ChangePassword from "./ChangePassword";
+import NotificationPopover from "./NotificationPopover";
 interface TopBarProps {
   onToggleMobileSidebar?: () => void;
 }
@@ -22,7 +21,9 @@ interface UserInfo {
   avatar?: string;
 }
 
-const TopBar: React.FC<TopBarProps> = ({ onToggleMobileSidebar }): JSX.Element => {
+const TopBar: React.FC<TopBarProps> = ({
+  onToggleMobileSidebar,
+}): JSX.Element => {
   const [popoverOpen, setPopoverOpen] = useState(false);
   // Close notification popover when clicking outside
   React.useEffect(() => {
@@ -50,12 +51,10 @@ const TopBar: React.FC<TopBarProps> = ({ onToggleMobileSidebar }): JSX.Element =
     setNotifLoading(true);
     setNotifError(null);
     try {
-      const userId = user?._id || localStorage.getItem("userId") || "";
-      const companyId =
-        typeof user?.company_id === "string" ||
-          typeof user?.company_id === "number"
-          ? user.company_id
-          : localStorage.getItem("companyId") || "";
+      const userId = user?._id || user?.userId || "";
+      const companyId = (user?.companyId || user?.company_id || "") as
+        | string
+        | number;
       const data = await alertServices.getNotifications({
         userId,
         companyId,
@@ -133,8 +132,9 @@ const TopBar: React.FC<TopBarProps> = ({ onToggleMobileSidebar }): JSX.Element =
     if (user) {
       return {
         name:
-          `${user.first_name || user.firstName || ""} ${user.last_name || user.lastName || ""
-            }`.trim() || "User",
+          `${user.first_name || user.firstName || ""} ${
+            user.last_name || user.lastName || ""
+          }`.trim() || "User",
         email: String(user.email_id || user.email || ""),
         avatar: typeof user.avatar === "string" ? user.avatar : "",
       };
@@ -184,13 +184,13 @@ const TopBar: React.FC<TopBarProps> = ({ onToggleMobileSidebar }): JSX.Element =
               </div>
             </div>  */}
           <div className="flex-1 flex items-center space-x-2">
-             <button
+            <button
               type="button"
               className="bg-black rounded-lg p-2 md:hidden w-auto"
               aria-label="Open sidebar"
               onClick={onToggleMobileSidebar}
             >
-            <Bars3Icon className="w-6 h-6 shadow-md rounded-md"/>
+              <Bars3Icon className="w-6 h-6 shadow-md rounded-md" />
             </button>
             <h1 className="text-xl font-semibold tracking-wide whitespace-nowrap">
               {getPageName}
@@ -324,9 +324,9 @@ const TopBar: React.FC<TopBarProps> = ({ onToggleMobileSidebar }): JSX.Element =
                 </div>
               )}
               {/* Mobile hover tooltip */}
-                <div className="absolute right-0 top-12 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50 sm:hidden">
-                  {getUserInfo.name}
-                </div>
+              <div className="absolute right-0 top-12 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50 sm:hidden">
+                {getUserInfo.name}
+              </div>
             </div>
           </div>
         </div>

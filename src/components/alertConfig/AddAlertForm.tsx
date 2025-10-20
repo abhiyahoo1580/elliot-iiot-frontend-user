@@ -2,12 +2,15 @@ import React, { useEffect, useState } from "react";
 import { alertServices } from "../../services/alertService";
 // import EditAlertForm from "./EditAlert";
 import { toast } from "react-toastify";
+import { useAuth } from "../../hooks/useAuth";
 
 interface AddAlertFormProps {
   onClose: () => void;
 }
 
 const AddAlertForm: React.FC<AddAlertFormProps> = ({ onClose }) => {
+  const { user } = useAuth();
+
   interface DeviceTypeItem {
     _id: string;
     DeviceTypeName: string;
@@ -39,7 +42,7 @@ const AddAlertForm: React.FC<AddAlertFormProps> = ({ onClose }) => {
   });
 
   useEffect(() => {
-    const id = localStorage.getItem("userId");
+    const id = user?.userId || user?._id;
     if (id) {
       alertServices
         .getMeterName(String(id))
@@ -54,7 +57,7 @@ const AddAlertForm: React.FC<AddAlertFormProps> = ({ onClose }) => {
           setMachineName([]);
         });
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (assetId) {

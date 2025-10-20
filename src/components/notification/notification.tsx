@@ -33,9 +33,8 @@ type NotificationType = {
 
 const Notification: React.FC = () => {
   const auth = useContext(AuthContext);
-  const userId = auth?.user?.userId || localStorage.getItem("userId") || "";
-  const companyId =
-    auth?.user?.company_id || localStorage.getItem("companyId") || "";
+  const userId = auth?.user?.userId || "";
+  const companyId = auth?.user?.company_id || auth?.user?.companyId || "";
   // For bell icon unread count refresh
   const { refresh: refreshUnreadCount } = useUnreadNotificationContext();
 

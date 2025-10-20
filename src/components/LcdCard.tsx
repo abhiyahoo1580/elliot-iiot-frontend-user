@@ -258,9 +258,9 @@ function LcdCard({ deviceData, className = "", size = "md" }: LcdCardProps) {
             <div className="p-4 pb-3 h-14">
               <div className="flex items-center justify-between h-full">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-9 w-9 rounded-xl bg-slate-100 flex items-center justify-center shadow-inner ring-1 ring-slate-200">
+                  {/* <div className="h-9 w-9 rounded-xl bg-slate-100 flex items-center justify-center shadow-inner ring-1 ring-slate-200">
                     <span className="text-slate-600">🏭</span>
-                  </div>
+                  </div> */}
                   <h2 className="text-sm font-semibold text-slate-900 tracking-tight truncate">
                     {asset.AssetName}
                   </h2>

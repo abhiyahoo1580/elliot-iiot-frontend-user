@@ -11,12 +11,13 @@ import { ENDPOINTS } from "../api/endpoints";
 interface User {
   userId: string;
   _id: string;
+  companyId?: string | number;
+  emailId?: string;
   [key: string]: unknown;
 }
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
   login: (params: { email_id: string; password: string }) => Promise<User>;
   logout: () => void;
 }
@@ -31,35 +32,40 @@ interface AuthProviderProps {
 // AuthProvider component to wrap your app
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
 
-  // Restore user after reload if userId exists
+  // Restore user on mount by calling /OEM/user/me API
   useEffect(() => {
-    const userId = localStorage.getItem("userId");
-    if (userId) {
-      // Token is in cookie, no need to set Authorization header
-      axiosInstance
-        .get(`${ENDPOINTS.GET_FULL_USER}${userId}`)
-        .then((res) => {
-          const fullUser = res.data?.data;
-          if (!fullUser || (!fullUser.userId && !fullUser._id)) {
-            setUser(null);
-            localStorage.removeItem("userId");
-            return;
-          }
-          if (fullUser.company_id) {
-            localStorage.setItem("companyId", String(fullUser.company_id));
-          }
+    const restoreUser = async () => {
+      try {
+        const { data } = await axiosInstance.get("/OEM/user/me");
+        if (data && data.data && (data.data.userId || data.data.emailId)) {
           setUser({
-            ...fullUser,
-            userId: fullUser.userId || fullUser._id,
+            userId: data.data.userId,
+            _id: data.data.userId,
+            companyId: data.data.companyId,
+            emailId: data.data.emailId,
+            ...data.data,
           });
-        })
-        .catch(() => {
+        } else {
           setUser(null);
-          localStorage.removeItem("userId");
-        });
-    }
+          if (
+            window.location.pathname !== "/login" &&
+            window.location.pathname !== "/"
+          ) {
+            window.location.href = "/login";
+          }
+        }
+      } catch (err) {
+        setUser(null);
+        if (
+          window.location.pathname !== "/login" &&
+          window.location.pathname !== "/"
+        ) {
+          window.location.href = "/login";
+        }
+      }
+    };
+    restoreUser();
   }, []);
 
   // Login function
@@ -70,16 +76,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           email_id,
           password,
         });
-        console.log("Login API response:", JSON.stringify(data, null, 2));
+        // console.log("Login API response:", { data });
 
-        // Check if login failed
-        if (!data || data.data?.success === false) {
-          throw new Error(data?.msg || "Login failed");
-        }
-
-        // Check for valid user data
-        if (!data.data || !(data.data.userId || data.data._id)) {
-          console.error("Invalid response structure:", data);
+        if (!data || !data.data || !(data.data.userId || data.data._id)) {
           throw new Error("Invalid login response");
         }
 
@@ -89,10 +88,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
           ...data.data,
         };
 
-        // Token is now in httpOnly cookie - no need to store in localStorage
-        // Just store userId for session restoration
-        localStorage.setItem("userId", userObj._id);
-
         // Fetch full user info immediately after login
         const fullUserRes = await axiosInstance.get(
           `${ENDPOINTS.GET_FULL_USER}${userObj._id}`
@@ -100,24 +95,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const fullUser = fullUserRes.data?.data;
         if (!fullUser || !(fullUser.userId || fullUser._id)) {
           setUser(null);
-          localStorage.removeItem("userId");
           throw new Error("Failed to fetch full user info");
-        }
-        if (fullUser.company_id) {
-          localStorage.setItem("companyId", String(fullUser.company_id));
         }
         setUser({
           ...fullUser,
           userId: fullUser.userId || fullUser._id,
+          companyId: fullUser.company_id,
+          emailId: fullUser.email_id,
         });
         return {
           ...fullUser,
           userId: fullUser.userId || fullUser._id,
+          companyId: fullUser.company_id,
+          emailId: fullUser.email_id,
         };
       } catch (err) {
         console.error("Login or fetch full user failed:", err);
         setUser(null);
-        localStorage.removeItem("userId");
         throw err;
       }
     },
@@ -126,25 +120,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = async () => {
     try {
-      // Call backend logout endpoint to clear cookie
-      await axiosInstance.post(ENDPOINTS.LOGOUT);
-
       setUser(null);
-      setToken(null);
       localStorage.clear();
       return Promise.resolve();
     } catch (error) {
       console.error("Logout error:", error);
-      // Even if logout fails, clear local state
-      setUser(null);
-      setToken(null);
-      localStorage.clear();
       return Promise.reject(error);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ token, user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
