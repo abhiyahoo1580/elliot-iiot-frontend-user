@@ -88,7 +88,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           userId: data.data.userId || data.data._id,
           ...data.data,
         };
-        
+
         // Token is now in httpOnly cookie - no need to store in localStorage
         // Just store userId for session restoration
         localStorage.setItem("userId", userObj._id);
@@ -128,7 +128,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       // Call backend logout endpoint to clear cookie
       await axiosInstance.post(ENDPOINTS.LOGOUT);
-      
+
       setUser(null);
       setToken(null);
       localStorage.clear();
